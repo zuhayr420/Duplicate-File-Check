@@ -1,0 +1,11 @@
+# Python Duplicate File Detection Project
+# ============================================
+# This academic project is implemented exclusively using the Python Standard Library.
+#
+# Standard modules utilized:
+# - os       : Directory tree traversal, path resolution, and file metadata extraction
+# - hashlib  : SHA-256 cryptographic hash computation
+# - sys      : Command-line argument handling and standard stream management
+#
+# No external third-party dependencies are required.
+# Compatible with Python 3.8 and above.
