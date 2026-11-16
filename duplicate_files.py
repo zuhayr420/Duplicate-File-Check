@@ -3,6 +3,15 @@ Duplicate File Detection Program
 =================================
 A practical Python program that scans a specified directory and all its subdirectories
 to detect duplicate files by computing and comparing their cryptographic SHA-256 hash values.
+
+Academic Practical Specification:
+- Recursive directory scanning via os.walk()
+- Binary chunk-based reading for memory-safe hashing
+- Grouping of identical files by SHA-256 digest
+- Distinction between original file and redundant duplicate copies
+- Comprehensive reporting including file counts and wasted storage space
+- Robust error handling for permissions and unreadable files
+- Read-only: never modifies or deletes any files on disk
 """
 
 import os
@@ -31,6 +40,7 @@ def calculate_hash(file_path, chunk_size=65536):
                 sha256_hasher.update(data_chunk)
         return sha256_hasher.hexdigest()
     except (PermissionError, FileNotFoundError, OSError):
+        # Gracefully handle file access, permission, or OS level locking errors
         return None
 
 
@@ -62,12 +72,18 @@ def find_duplicates(directory):
         directory (str): The root directory to scan.
 
     Returns:
-        dict: Summary dictionary containing scan results and duplicate groups.
+        dict: Summary dictionary containing:
+            - scanned_count: Total files scanned
+            - duplicate_groups: Dict of {sha256_hash: [original_path, duplicate_path, ...]}
+            - total_duplicates: Total number of redundant duplicate files
+            - wasted_bytes: Total storage occupied by duplicate copies
+            - inaccessible_files: List of file paths that could not be read
     """
     hash_map = {}
     inaccessible_files = []
     scanned_count = 0
 
+    # Recursively traverse directory tree
     for current_root, _, filenames in os.walk(directory):
         for filename in filenames:
             full_path = os.path.join(current_root, filename)
@@ -82,6 +98,7 @@ def find_duplicates(directory):
                 hash_map[file_hash] = []
             hash_map[file_hash].append(full_path)
 
+    # Filter out entries with only one file to isolate genuine duplicates
     duplicate_groups = {}
     total_duplicates = 0
     wasted_bytes = 0
@@ -92,6 +109,7 @@ def find_duplicates(directory):
             redundant_count = len(file_paths) - 1
             total_duplicates += redundant_count
 
+            # Determine file size to calculate wasted storage
             try:
                 single_copy_size = os.path.getsize(file_paths[0])
             except (OSError, FileNotFoundError):
@@ -127,16 +145,19 @@ def display_results(results, target_directory):
     print(f"Wasted Storage Space : {format_storage_size(results['wasted_bytes'])}")
     print(separator)
 
+    # Report inaccessible files if any were encountered
     if results["inaccessible_files"]:
         print("\n[!] WARNING: Inaccessible Files (Read/Permission Error):")
         for index, inacc_file in enumerate(results["inaccessible_files"], start=1):
             print(f"    {index}. {inacc_file}")
 
+    # Check if duplicates exist
     if not results["duplicate_groups"]:
         print("\n[+] SUCCESS: No duplicate files found in the specified directory.")
         print(separator + "\n")
         return
 
+    # Display each duplicate group with detailed path listings
     print("\n[+] DUPLICATE FILE GROUPS FOUND:\n")
     group_index = 1
     for file_hash, file_list in results["duplicate_groups"].items():
@@ -161,3 +182,44 @@ def display_results(results, target_directory):
     print(f"Reclaimable storage space: {format_storage_size(results['wasted_bytes'])}.")
     print("Security Guarantee: No files were modified or deleted.")
     print(separator + "\n")
+
+
+def main():
+    """
+    Main driver function: handles directory input, input validation, and execution.
+    """
+    print("\n" + "=" * 60)
+    print("   PYTHON PRACTICAL: SHA-256 DUPLICATE FILE DETECTOR")
+    print("=" * 60)
+
+    # Support command line argument or interactive user prompt
+    if len(sys.argv) > 1:
+        raw_path = sys.argv[1].strip().strip('"').strip("'")
+    else:
+        raw_path = input("Enter the directory path to scan for duplicates: ").strip().strip('"').strip("'")
+
+    # Validate directory input
+    if not raw_path:
+        print("\n[-] Error: Directory path cannot be empty.")
+        return
+
+    if not os.path.exists(raw_path):
+        print(f"\n[-] Error: The directory path '{raw_path}' does not exist.")
+        return
+
+    if not os.path.isdir(raw_path):
+        print(f"\n[-] Error: The path '{raw_path}' is not a directory.")
+        return
+
+    normalized_dir = os.path.abspath(raw_path)
+    print(f"\n[*] Scanning directory tree: {normalized_dir} ...")
+
+    # Execute duplicate detection
+    scan_results = find_duplicates(normalized_dir)
+
+    # Present formatted audit results
+    display_results(scan_results, normalized_dir)
+
+
+if __name__ == "__main__":
+    main()
